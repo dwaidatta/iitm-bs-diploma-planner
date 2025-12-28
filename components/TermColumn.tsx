@@ -39,19 +39,19 @@ export function TermColumn({
       isOver && 'ring-2 ring-blue-500 bg-slate-800/80'
     )}>
       <CardHeader className="pb-3 border-b border-slate-800">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <CardTitle className="text-lg text-slate-100">{termName}</CardTitle>
-          <div className="flex gap-2">
-            <Badge variant="secondary" className="bg-slate-700 text-slate-200 border-slate-600">
+          <div className="flex gap-2 items-center flex-shrink-0">
+            <Badge variant="secondary" className="bg-slate-700 text-slate-200 border-slate-600 whitespace-nowrap">
               {totalCredits} cr
             </Badge>
             {theoryCourses > 0 && (
-              <Badge variant="outline" className="border-slate-600 bg-slate-800 text-slate-300">
+              <Badge variant="outline" className="border-slate-600 bg-slate-800 text-slate-300 whitespace-nowrap">
                 {theoryCourses} {theoryCourses === 1 ? 'course' : 'courses'}
               </Badge>
             )}
             {oppeCount > 0 && (
-              <Badge className="bg-red-900/50 border border-red-700 text-red-300">
+              <Badge className="bg-red-900/50 border border-red-700 text-red-300 whitespace-nowrap">
                 {oppeCount} OPPE
               </Badge>
             )}

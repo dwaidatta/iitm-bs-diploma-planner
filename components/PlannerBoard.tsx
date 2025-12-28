@@ -30,6 +30,7 @@ import { RotateCcw, Plus, Trash2, AlertCircle } from 'lucide-react';
 const STORAGE_KEY = 'iitm-diploma-plan';
 
 export function PlannerBoard() {
+  const [mounted, setMounted] = useState(false);
   const [planningState, setPlanningState] = useState<PlanningState>({
     terms: [
       { id: 1, name: 'Term 1', courses: [] },
@@ -52,7 +53,14 @@ export function PlannerBoard() {
     })
   );
 
+  // Prevent hydration mismatch
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       try {
@@ -61,11 +69,12 @@ export function PlannerBoard() {
         console.error('Failed to load saved plan:', e);
       }
     }
-  }, []);
+  }, [mounted]);
 
   useEffect(() => {
+    if (!mounted) return;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(planningState));
-  }, [planningState]);
+  }, [planningState, mounted]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
@@ -140,7 +149,6 @@ export function PlannerBoard() {
     }
   };
 
-  // Get all planned courses across all terms for dynamic status checking
   const allPlannedCourses = planningState.terms.flatMap(t => t.courses);
 
   const getCourseStatusWrapper = (course: Course) => {
@@ -204,14 +212,34 @@ export function PlannerBoard() {
 
   const activeCourse = activeId ? allCourses.find(c => c.id === activeId) : null;
 
+  // Show loading state to prevent hydration mismatch
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-slate-950 p-6">
+        <div className="max-w-[1800px] mx-auto space-y-6">
+          <div className="flex items-center justify-center h-96">
+            <div className="text-slate-400">Loading...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 p-6">
       <div className="max-w-[1800px] mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div className="flex-1">
             <h1 className="text-4xl font-bold text-slate-100">IITM BS DS Diploma Planner</h1>
-            <p className="text-slate-400 mt-1">✨ Made with AI • Verify before use • Mistakes can be present</p>
+            <div className="flex items-center gap-2 mt-2 text-xs">
+              <span className="px-2 py-1 bg-amber-900/30 border border-amber-700/50 text-amber-400 rounded">
+                ⚠ Made with Gen AI
+              </span>
+              <span className="text-slate-500">
+                Always verify • Mistakes can be present
+              </span>
+            </div>
           </div>
           <div className="flex gap-3">
             <ExportButton planningState={planningState} />
