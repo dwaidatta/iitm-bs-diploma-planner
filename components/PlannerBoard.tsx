@@ -9,7 +9,9 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  DragOverEvent,
 } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { PlanningState, DiplomaTrack, Course } from '@/types/course';
 import { TermColumn } from './TermColumn';
 import { CoursePool } from './CoursePool';
@@ -53,7 +55,6 @@ export function PlannerBoard() {
     })
   );
 
-  // Prevent hydration mismatch
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -81,6 +82,42 @@ export function PlannerBoard() {
     setError(null);
   };
 
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    // Find which term contains the active item
+    const activeTermId = planningState.terms.find(t => 
+      t.courses.includes(activeId)
+    )?.id;
+
+    // Determine if we're over a term or a course
+    const overTermId = overId.startsWith('term-') 
+      ? parseInt(overId.replace('term-', ''))
+      : planningState.terms.find(t => t.courses.includes(overId))?.id;
+
+    // If dragging within the same term, reorder
+    if (activeTermId && overTermId && activeTermId === overTermId && activeId !== overId) {
+      setPlanningState(prev => ({
+        ...prev,
+        terms: prev.terms.map(term => {
+          if (term.id === activeTermId) {
+            const oldIndex = term.courses.indexOf(activeId);
+            const newIndex = term.courses.indexOf(overId);
+            return {
+              ...term,
+              courses: arrayMove(term.courses, oldIndex, newIndex)
+            };
+          }
+          return term;
+        })
+      }));
+    }
+  };
+
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
@@ -96,16 +133,26 @@ export function PlannerBoard() {
     )?.id;
 
     const overStr = over.id as string;
+    
+    // Check if dropped on a term
     const destTermId = overStr.startsWith('term-') 
       ? parseInt(overStr.replace('term-', ''))
       : null;
 
-    if (destTermId !== null) {
-      const destTerm = planningState.terms.find(t => t.id === destTermId);
+    // Check if dropped on another course (to determine term)
+    const overCourseTermId = planningState.terms.find(t => 
+      t.courses.includes(overStr)
+    )?.id;
+
+    const finalDestTermId = destTermId ?? overCourseTermId;
+
+    // Moving to a different term
+    if (finalDestTermId !== null && finalDestTermId !== undefined && sourceTermId !== finalDestTermId) {
+      const destTerm = planningState.terms.find(t => t.id === finalDestTermId);
       if (!destTerm) return;
 
       const completedInPrevTerms = planningState.terms
-        .filter(t => t.id < destTermId)
+        .filter(t => t.id < finalDestTermId)
         .flatMap(t => t.courses);
 
       const validation = canAddCourse(
@@ -129,7 +176,7 @@ export function PlannerBoard() {
               courses: term.courses.filter(id => id !== courseId)
             };
           }
-          if (term.id === destTermId && !term.courses.includes(courseId)) {
+          if (term.id === finalDestTermId && !term.courses.includes(courseId)) {
             return {
               ...term,
               courses: [...term.courses, courseId]
@@ -139,6 +186,7 @@ export function PlannerBoard() {
         })
       }));
     } else if (overStr === 'course-pool') {
+      // Moving back to course pool
       setPlanningState(prev => ({
         ...prev,
         terms: prev.terms.map(term => ({
@@ -147,7 +195,9 @@ export function PlannerBoard() {
         }))
       }));
     }
+    // If sourceTermId === finalDestTermId, reordering was already handled in handleDragOver
   };
+
 
   const allPlannedCourses = planningState.terms.flatMap(t => t.courses);
 
@@ -212,7 +262,6 @@ export function PlannerBoard() {
 
   const activeCourse = activeId ? allCourses.find(c => c.id === activeId) : null;
 
-  // Show loading state to prevent hydration mismatch
   if (!mounted) {
     return (
       <div className="min-h-screen bg-slate-950 p-6">
@@ -231,13 +280,13 @@ export function PlannerBoard() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div className="flex-1">
-            <h1 className="text-4xl font-bold text-slate-100">IITM BS DS Diploma Planner</h1>
+            <h1 className="text-4xl font-bold text-slate-100">IITM BS DS Planner</h1>
             <div className="flex items-center gap-2 mt-2 text-xs">
               <span className="px-2 py-1 bg-amber-900/30 border border-amber-700/50 text-amber-400 rounded">
-                ⚠ Made with Gen AI
+                ⚠ Made with Gen AI • Always verify • Mistakes can be present
               </span>
               <span className="text-slate-500">
-                Always verify • Mistakes can be present
+                Not affiliated with IITM
               </span>
             </div>
           </div>
@@ -294,6 +343,7 @@ export function PlannerBoard() {
         <DndContext
           sensors={sensors}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <div className="grid grid-cols-1 xl:grid-cols-[400px_1fr] gap-6">
