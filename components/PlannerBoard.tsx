@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -46,6 +46,9 @@ export function PlannerBoard() {
 
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  
+  // Track last drag over position to prevent infinite updates
+  const lastOverId = useRef<string | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -80,6 +83,7 @@ export function PlannerBoard() {
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
     setError(null);
+    lastOverId.current = null;
   };
 
   const handleDragOver = (event: DragOverEvent) => {
@@ -88,6 +92,10 @@ export function PlannerBoard() {
 
     const activeId = active.id as string;
     const overId = over.id as string;
+
+    // Prevent unnecessary updates if hovering over the same item
+    if (lastOverId.current === overId) return;
+    lastOverId.current = overId;
 
     // Find which term contains the active item
     const activeTermId = planningState.terms.find(t => 
@@ -99,28 +107,38 @@ export function PlannerBoard() {
       ? parseInt(overId.replace('term-', ''))
       : planningState.terms.find(t => t.courses.includes(overId))?.id;
 
-    // If dragging within the same term, reorder
-    if (activeTermId && overTermId && activeTermId === overTermId && activeId !== overId) {
-      setPlanningState(prev => ({
-        ...prev,
-        terms: prev.terms.map(term => {
-          if (term.id === activeTermId) {
-            const oldIndex = term.courses.indexOf(activeId);
-            const newIndex = term.courses.indexOf(overId);
-            return {
-              ...term,
-              courses: arrayMove(term.courses, oldIndex, newIndex)
-            };
-          }
-          return term;
-        })
-      }));
+    // Only reorder if dragging within the same term and over a different course
+    if (activeTermId && overTermId && activeTermId === overTermId && activeId !== overId && !overId.startsWith('term-')) {
+      setPlanningState(prev => {
+        const term = prev.terms.find(t => t.id === activeTermId);
+        if (!term) return prev;
+
+        const oldIndex = term.courses.indexOf(activeId);
+        const newIndex = term.courses.indexOf(overId);
+        
+        // Don't update if indices are the same
+        if (oldIndex === newIndex) return prev;
+
+        return {
+          ...prev,
+          terms: prev.terms.map(t => {
+            if (t.id === activeTermId) {
+              return {
+                ...t,
+                courses: arrayMove(t.courses, oldIndex, newIndex)
+              };
+            }
+            return t;
+          })
+        };
+      });
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveId(null);
+    lastOverId.current = null;
 
     if (!over) return;
 
@@ -197,7 +215,6 @@ export function PlannerBoard() {
     }
     // If sourceTermId === finalDestTermId, reordering was already handled in handleDragOver
   };
-
 
   const allPlannedCourses = planningState.terms.flatMap(t => t.courses);
 
