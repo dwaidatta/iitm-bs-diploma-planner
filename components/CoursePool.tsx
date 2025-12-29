@@ -8,6 +8,8 @@ import { courses as allCourses, getRequiredCourses } from '@/lib/planningLogic';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext } from '@dnd-kit/sortable';
 import { Badge } from './ui/badge';
+import { cn } from '@/lib/utils';
+import { RotateCcw } from 'lucide-react';
 
 interface CoursePoolProps {
   selectedTrack: DiplomaTrack;
@@ -22,7 +24,7 @@ export function CoursePool({
   completedCourses,
   getCourseStatus
 }: CoursePoolProps) {
-  const { setNodeRef } = useDroppable({ id: 'course-pool' });
+  const { setNodeRef, isOver } = useDroppable({ id: 'course-pool' });
   
   const requiredCourseIds = getRequiredCourses(selectedTrack);
   const availableCourses = allCourses.filter(c => 
@@ -35,18 +37,35 @@ export function CoursePool({
   const datascienceCourses = availableCourses.filter(c => c.type === 'data-science');
 
   return (
-    <Card className="h-full bg-slate-900 border-slate-700">
-      <CardHeader className="pb-3 border-b border-slate-800">
+    <Card className={cn(
+      "h-full border-2 transition-all duration-200",
+      isOver ? "border-amber-500 bg-amber-950/20 shadow-lg shadow-amber-500/20" : "bg-slate-900 border-slate-700"
+    )}>
+      <CardHeader className={cn(
+        "pb-3 border-b transition-colors duration-200",
+        isOver ? "border-amber-700 bg-amber-950/20" : "border-slate-800"
+      )}>
         <div className="flex items-center justify-between">
-          <CardTitle className="text-slate-100">Available Courses</CardTitle>
+          <CardTitle className={cn(
+            "transition-colors duration-200",
+            isOver ? "text-amber-300" : "text-slate-100"
+          )}>
+            Available Courses
+          </CardTitle>
           <Badge variant="secondary" className="bg-slate-700 text-slate-200">
             {availableCourses.length}
           </Badge>
         </div>
+        {isOver && (
+          <p className="text-xs text-amber-400 flex items-center gap-2 mt-2">
+            <RotateCcw className="h-3 w-3" />
+            Drop here to remove from term
+          </p>
+        )}
       </CardHeader>
       <CardContent className="p-4">
         <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-slate-700 mb-4 p-1">
+          <TabsList className="grid w-full grid-cols-3 bg-slate-800 border border-slate-700 mb-4 p-1">
             <TabsTrigger 
               value="all"
               className="text-xs data-[state=active]:bg-slate-700 data-[state=active]:text-slate-100 data-[state=inactive]:text-slate-400"
@@ -68,7 +87,10 @@ export function CoursePool({
           </TabsList>
           
           <TabsContent value="all" className="space-y-3 mt-0 max-h-[calc(100vh-320px)] overflow-y-auto pr-2">
-            <div ref={setNodeRef}>
+            <div ref={setNodeRef} className={cn(
+              "rounded-lg transition-all duration-200 p-2 -m-2",
+              isOver && "bg-amber-500/10 border-2 border-dashed border-amber-400"
+            )}>
               <SortableContext items={availableCourses.map(c => c.id)}>
                 {availableCourses.map(course => (
                   <div key={course.id} className="mb-3">
